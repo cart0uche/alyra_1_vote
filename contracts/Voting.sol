@@ -35,6 +35,7 @@ contract Voting is Ownable {
     event Voted(address voter, uint proposalId);
 
     WorkflowStatus workflowStatus;
+    mapping(address => Voter) voters;
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
@@ -42,7 +43,9 @@ contract Voting is Ownable {
 
     function getWinner() external returns (uint) {}
 
-    /* Workflow functions */
+    /* 
+        Workflow functions 
+    */
     modifier emitWorkflowChange() {
         WorkflowStatus previousWorkflow = workflowStatus;
         _;
@@ -67,5 +70,17 @@ contract Voting is Ownable {
 
     function tallyVote() external onlyOwner emitWorkflowChange {
         workflowStatus = WorkflowStatus.VotesTallied;
+    }
+
+    /*
+        Voting functions
+    */
+    function addVoter(address _voter) external onlyOwner {
+        Voter memory voter;
+        voter.isRegistered = false;
+        voter.hasVoted = false;
+        voter.votedProposalId = 0;
+        voters[_voter] = voter;
+        emit VoterRegistered(_voter);
     }
 }
