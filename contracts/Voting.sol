@@ -36,15 +36,13 @@ contract Voting is Ownable {
 
     WorkflowStatus workflowStatus;
     mapping(address => Voter) voters;
-    mapping(uint => Proposal) proposals;
+    Proposal[] proposals;
     uint proposalId;
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
         proposalId = 0;
     }
-
-    function getWinner() external returns (uint) {}
 
     /* 
         Workflow functions 
@@ -126,13 +124,13 @@ contract Voting is Ownable {
             "Voter already proposed"
         );
 
-        proposalId++;
         Proposal memory proposal;
         proposal.description = _description;
         proposal.voteCount = 0;
-        proposals[proposalId] = proposal;
+        proposals.push(proposal);
 
         voters[msg.sender].votedProposalId = proposalId;
+        proposalId++;
         emit ProposalRegistered(proposalId);
     }
 
@@ -142,9 +140,28 @@ contract Voting is Ownable {
             "Not in a vote session"
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
+        require(voters[msg.sender].hasVoted == false, "Voter already voted");
         require(_proposalId <= proposalId, "proposalId not valid");
 
         proposals[_proposalId].voteCount += 1;
+        voters[msg.sender].hasVoted = true;
         emit Voted(msg.sender, _proposalId);
+    }
+
+    function getWinner() external view returns (uint) {
+        require(
+            workflowStatus == WorkflowStatus.VotingSessionEnded,
+            "Voting session not ended"
+        );
+        uint winningProposalId;
+        uint maxVote;
+
+        for (uint i = 0; i < proposals.length; i++) {
+            if (proposals[i].voteCount > maxVote) {
+                winningProposalId = i;
+            }
+        }
+
+        return winningProposalId;
     }
 }
