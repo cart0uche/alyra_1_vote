@@ -34,28 +34,38 @@ contract Voting is Ownable {
     event ProposalRegistered(uint proposalId);
     event Voted(address voter, uint proposalId);
 
-    WorkflowStatus workFloStatus;
+    WorkflowStatus workflowStatus;
 
     constructor() {
-        workFloStatus = WorkflowStatus.RegisteringVoters;
+        workflowStatus = WorkflowStatus.RegisteringVoters;
     }
 
     function getWinner() external returns (uint) {}
 
-    /* WorkFlow functions */
-    function startProposalsRegistration() external onlyOwner {
-        workFloStatus = WorkflowStatus.ProposalsRegistrationStarted;
+    /* Workflow functions */
+    modifier emitWorkflowChange() {
+        WorkflowStatus previousWorkflow = workflowStatus;
+        _;
+        emit WorkflowStatusChange(previousWorkflow, workflowStatus);
     }
 
-    function endProposalsRegistration() external onlyOwner {
-        workFloStatus = WorkflowStatus.ProposalsRegistrationEnded;
+    function startProposalsRegistration()
+        external
+        onlyOwner
+        emitWorkflowChange
+    {
+        workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
     }
 
-    function startVotingSession() external onlyOwner {
-        workFloStatus = WorkflowStatus.VotingSessionStarted;
+    function endProposalsRegistration() external onlyOwner emitWorkflowChange {
+        workflowStatus = WorkflowStatus.ProposalsRegistrationEnded;
     }
 
-    function tallyVote() external onlyOwner {
-        workFloStatus = WorkflowStatus.VotesTallied;
+    function startVotingSession() external onlyOwner emitWorkflowChange {
+        workflowStatus = WorkflowStatus.VotingSessionStarted;
+    }
+
+    function tallyVote() external onlyOwner emitWorkflowChange {
+        workflowStatus = WorkflowStatus.VotesTallied;
     }
 }
