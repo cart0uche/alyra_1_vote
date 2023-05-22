@@ -14,13 +14,12 @@ const VotesTallie = 5;
 
 describe("Test workflow", function () {
    beforeEach(async function () {
-      [owner, voter1, voter2, voter3, voter4] = await ethers.getSigners();
+      [owner, voter1] = await ethers.getSigners();
       Voting_Factory = await ethers.getContractFactory("Voting");
       Voting = await Voting_Factory.deploy();
    });
 
    it("emit event at workflow changes", async function () {
-      expect(await Voting.workflowStatus()).to.equal(RegisteringVoters);
       // initially worflow is RegisteringVoters, and no event is emmit
       expect(await Voting.workflowStatus()).to.equal(RegisteringVoters);
 
@@ -48,5 +47,82 @@ describe("Test workflow", function () {
       await expect(await Voting.tallyVote())
          .to.emit(Voting, "WorkflowStatusChange")
          .withArgs(VotingSessionEnded, VotesTallie);
+   });
+
+   it("change workflow is only allowed for owner", async function () {
+      await expect(
+         Voting.connect(voter1).startProposalsRegistration()
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      Voting.startProposalsRegistration();
+
+      await expect(
+         Voting.connect(voter1).endProposalsRegistration()
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      Voting.endProposalsRegistration();
+
+      await expect(
+         Voting.connect(voter1).startVotingSession()
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      Voting.startVotingSession();
+
+      await expect(
+         Voting.connect(voter1).endVotingSession()
+      ).to.be.revertedWith("Ownable: caller is not the owner");
+      Voting.endVotingSession();
+
+      await expect(Voting.connect(voter1).tallyVote()).to.be.revertedWith(
+         "Ownable: caller is not the owner"
+      );
+      Voting.tallyVote();
+   });
+});
+
+describe("Test adding in whitelist", function () {
+   beforeEach(async function () {
+      [owner, voter1] = await ethers.getSigners();
+      Voting_Factory = await ethers.getContractFactory("Voting");
+      Voting = await Voting_Factory.deploy();
+   });
+
+   it("emit an event when a voter in added", async function () {
+      await expect(await Voting.addVoter(voter1.address))
+         .to.emit(Voting, "VoterRegistered")
+         .withArgs(voter1.address);
+   });
+
+   it("add in whitelist only allowed in step RegisteringVoters", async function () {
+      expect(await Voting.workflowStatus()).to.equal(RegisteringVoters);
+      await Voting.addVoter(voter1.address);
+
+      await Voting.startProposalsRegistration();
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Not in a registering voters session"
+      );
+
+      await Voting.endProposalsRegistration();
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Not in a registering voters session"
+      );
+
+      await Voting.startVotingSession();
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Not in a registering voters session"
+      );
+
+      await Voting.endVotingSession();
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Not in a registering voters session"
+      );
+
+      await Voting.tallyVote();
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Not in a registering voters session"
+      );
+   });
+
+   it("change workflow is only allowed for owner", async function () {
+      await expect(
+         Voting.connect(voter1).addVoter(voter1.address)
+      ).to.be.revertedWith("Ownable: caller is not the owner");
    });
 });
