@@ -41,7 +41,7 @@ contract Voting is Ownable {
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
-        proposalId = 0;
+        proposalId = 1;
     }
 
     /* 
@@ -106,7 +106,7 @@ contract Voting is Ownable {
             "Not in a registering voters session"
         );
         Voter memory voter;
-        voter.isRegistered = false;
+        voter.isRegistered = true;
         voter.hasVoted = false;
         voter.votedProposalId = 0;
         voters[_voter] = voter;
@@ -120,7 +120,7 @@ contract Voting is Ownable {
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
         require(
-            voters[msg.sender].votedProposalId != 0,
+            voters[msg.sender].votedProposalId == 0,
             "Voter already proposed"
         );
 
@@ -130,8 +130,8 @@ contract Voting is Ownable {
         proposals.push(proposal);
 
         voters[msg.sender].votedProposalId = proposalId;
-        proposalId++;
         emit ProposalRegistered(proposalId);
+        proposalId++;
     }
 
     function addVote(uint _proposalId) external {

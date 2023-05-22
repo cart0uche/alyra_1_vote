@@ -84,7 +84,7 @@ describe("Test adding in whitelist", function () {
       Voting = await Voting_Factory.deploy();
    });
 
-   it("emit an event when a voter in added", async function () {
+   it("emit an event when a voter is added", async function () {
       await expect(await Voting.addVoter(voter1.address))
          .to.emit(Voting, "VoterRegistered")
          .withArgs(voter1.address);
@@ -124,5 +124,49 @@ describe("Test adding in whitelist", function () {
       await expect(
          Voting.connect(voter1).addVoter(voter1.address)
       ).to.be.revertedWith("Ownable: caller is not the owner");
+   });
+});
+
+describe("Test adding a proposal", function () {
+   beforeEach(async function () {
+      [owner, voter1, voter2, voters] = await ethers.getSigners();
+      Voting_Factory = await ethers.getContractFactory("Voting");
+      Voting = await Voting_Factory.deploy();
+   });
+
+   it("emit an event when a proposal is added", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.startProposalsRegistration();
+
+      await expect(
+         await Voting.connect(voter1).registerProposal("description1")
+      )
+         .to.emit(Voting, "ProposalRegistered")
+         .withArgs(1);
+
+      await expect(
+         await Voting.connect(voter2).registerProposal("description2")
+      )
+         .to.emit(Voting, "ProposalRegistered")
+         .withArgs(2);
+   });
+
+   it("fails if a voter is not register", async function () {
+      await Voting.startProposalsRegistration();
+
+      await expect(
+         Voting.connect(voter1).registerProposal("description0")
+      ).to.be.revertedWith("Voter not registred");
+   });
+
+   it("fails if a voter propose twice", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+
+      await Voting.connect(voter1).registerProposal("description0");
+      await expect(
+         Voting.connect(voter1).registerProposal("description0")
+      ).to.be.revertedWith("Voter already proposed");
    });
 });
