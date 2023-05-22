@@ -129,7 +129,7 @@ describe("Test adding in whitelist", function () {
 
 describe("Test adding a proposal", function () {
    beforeEach(async function () {
-      [owner, voter1, voter2, voters] = await ethers.getSigners();
+      [owner, voter1, voter2] = await ethers.getSigners();
       Voting_Factory = await ethers.getContractFactory("Voting");
       Voting = await Voting_Factory.deploy();
    });
@@ -168,5 +168,56 @@ describe("Test adding a proposal", function () {
       await expect(
          Voting.connect(voter1).registerProposal("description0")
       ).to.be.revertedWith("Voter already proposed");
+   });
+});
+
+describe("Test adding a vote", function () {
+   beforeEach(async function () {
+      [owner, voter1, voter2] = await ethers.getSigners();
+      Voting_Factory = await ethers.getContractFactory("Voting");
+      Voting = await Voting_Factory.deploy();
+   });
+
+   it("emit an event when a vote is added", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await expect(await Voting.connect(voter1).addVote(0))
+         .to.emit(Voting, "Voted")
+         .withArgs(voter1.address, 0);
+
+      await expect(await Voting.connect(voter2).addVote(1))
+         .to.emit(Voting, "Voted")
+         .withArgs(voter2.address, 1);
+   });
+
+   it("fails if a voter is not register", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await expect(Voting.connect(voter2).addVote(0)).to.be.revertedWith(
+         "Voter not registred"
+      );
+   });
+
+   it("fails if a voter vote twice", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await expect(Voting.connect(voter1).addVote(0)).to.be.revertedWith(
+         "Voter already voted"
+      );
    });
 });
