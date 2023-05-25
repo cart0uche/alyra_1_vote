@@ -141,14 +141,14 @@ contract Voting is Ownable {
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
         require(voters[msg.sender].hasVoted == false, "Voter already voted");
-        require(_proposalId <= proposalId, "proposalId not valid");
+        require(_proposalId < proposalId - 1, "proposalId not valid");
 
         proposals[_proposalId].voteCount += 1;
         voters[msg.sender].hasVoted = true;
         emit Voted(msg.sender, _proposalId);
     }
 
-    function getWinner() external view returns (uint) {
+    function getWinner() external view onlyOwner returns (uint) {
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
             "Voting session not ended"
@@ -159,6 +159,7 @@ contract Voting is Ownable {
         for (uint i = 0; i < proposals.length; i++) {
             if (proposals[i].voteCount > maxVote) {
                 winningProposalId = i;
+                maxVote = proposals[i].voteCount;
             }
         }
 

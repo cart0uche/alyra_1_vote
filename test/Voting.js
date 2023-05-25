@@ -3,7 +3,6 @@ const { ethers } = require("hardhat");
 
 let Voting_Factory;
 let Voting;
-let owner;
 
 const RegisteringVoters = 0;
 const ProposalsRegistrationStarted = 1;
@@ -19,7 +18,7 @@ describe("Test workflow", function () {
       Voting = await Voting_Factory.deploy();
    });
 
-   it("emit event at workflow changes", async function () {
+   it("emit an event at workflow changes", async function () {
       // initially worflow is RegisteringVoters, and no event is emmit
       expect(await Voting.workflowStatus()).to.equal(RegisteringVoters);
 
@@ -49,7 +48,7 @@ describe("Test workflow", function () {
          .withArgs(VotingSessionEnded, VotesTallie);
    });
 
-   it("change workflow is only allowed for owner", async function () {
+   it("fails if a voter try to change the workflow", async function () {
       await expect(
          Voting.connect(voter1).startProposalsRegistration()
       ).to.be.revertedWith("Ownable: caller is not the owner");
@@ -90,7 +89,7 @@ describe("Test adding in whitelist", function () {
          .withArgs(voter1.address);
    });
 
-   it("add in whitelist only allowed in step RegisteringVoters", async function () {
+   it("fails if not in a RegisteringVoters session", async function () {
       expect(await Voting.workflowStatus()).to.equal(RegisteringVoters);
       await Voting.addVoter(voter1.address);
 
@@ -120,7 +119,7 @@ describe("Test adding in whitelist", function () {
       );
    });
 
-   it("change workflow is only allowed for owner", async function () {
+   it("fails if a voter try to add in whitelist", async function () {
       await expect(
          Voting.connect(voter1).addVoter(voter1.address)
       ).to.be.revertedWith("Ownable: caller is not the owner");
@@ -219,5 +218,165 @@ describe("Test adding a vote", function () {
       await expect(Voting.connect(voter1).addVote(0)).to.be.revertedWith(
          "Voter already voted"
       );
+   });
+
+   it("fails if a voter vote for an unknown proposal", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "proposalId not valid"
+      );
+
+      await expect(Voting.connect(voter1).addVote(2)).to.be.revertedWith(
+         "proposalId not valid"
+      );
+   });
+
+   it("fails if not in a vote session", async function () {
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+      await Voting.addVoter(voter1.address);
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+      await Voting.startProposalsRegistration();
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+      await Voting.startVotingSession();
+      await Voting.endVotingSession();
+
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+
+      await Voting.tallyVote();
+      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
+         "Not in a vote session"
+      );
+   });
+});
+
+describe("Test getting a winner", function () {
+   beforeEach(async function () {
+      [owner, voter1, voter2, voter3, voter4] = await ethers.getSigners();
+      Voting_Factory = await ethers.getContractFactory("Voting");
+      Voting = await Voting_Factory.deploy();
+   });
+
+   it("fail if not called by owner", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await expect(Voting.connect(voter1).getWinner()).to.be.revertedWith(
+         "Ownable: caller is not the owner"
+      );
+   });
+
+   it("fail if vote session not ended", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+
+      await expect(Voting.getWinner()).to.be.revertedWith(
+         "Voting session not ended"
+      );
+   });
+
+   it("get winner, 1 vote for proposal 0", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.endVotingSession();
+
+      const result = await Voting.getWinner();
+      expect(result).to.equal(0);
+   });
+
+   it("get winner, 1 vote for proposal 0, 2 vote for proposal1", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.addVoter(voter3.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.connect(voter3).registerProposal("description3");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.connect(voter2).addVote(1);
+      await Voting.connect(voter3).addVote(1);
+      await Voting.endVotingSession();
+
+      const result = await Voting.getWinner();
+      expect(result).to.equal(1);
+   });
+
+   it("get winner, 2 vote for proposal 0, 1 vote for proposal1", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.addVoter(voter3.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.connect(voter3).registerProposal("description3");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.connect(voter2).addVote(0);
+      await Voting.connect(voter3).addVote(1);
+      await Voting.endVotingSession();
+
+      const result = await Voting.getWinner();
+      expect(result).to.equal(0);
+   });
+
+   it("get winner, 1 vote for proposal0, 2 vote for proposal1, 1 vote for proposal2", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.addVoter(voter3.address);
+      await Voting.addVoter(voter4.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.connect(voter3).registerProposal("description3");
+      await Voting.connect(voter4).registerProposal("description4");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.connect(voter2).addVote(1);
+      await Voting.connect(voter3).addVote(1);
+      await Voting.connect(voter4).addVote(2);
+      await Voting.endVotingSession();
+
+      const result = await Voting.getWinner();
+      expect(result).to.equal(1);
    });
 });
