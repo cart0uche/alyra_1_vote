@@ -38,6 +38,7 @@ contract Voting is Ownable {
     mapping(address => Voter) voters;
     Proposal[] proposals;
     uint proposalId;
+    uint winningProposalId;
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
@@ -89,14 +90,6 @@ contract Voting is Ownable {
         workflowStatus = WorkflowStatus.VotingSessionEnded;
     }
 
-    function tallyVote() external onlyOwner emitWorkflowChange {
-        require(
-            workflowStatus == WorkflowStatus.VotingSessionEnded,
-            "Current workflow should be VotingSessionEnded"
-        );
-        workflowStatus = WorkflowStatus.VotesTallied;
-    }
-
     /*
         Voting functions
     */
@@ -141,28 +134,37 @@ contract Voting is Ownable {
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
         require(voters[msg.sender].hasVoted == false, "Voter already voted");
-        require(_proposalId < proposalId - 1, "proposalId not valid");
+        require(_proposalId < proposals.length, "proposalId not valid");
 
         proposals[_proposalId].voteCount += 1;
         voters[msg.sender].hasVoted = true;
         emit Voted(msg.sender, _proposalId);
     }
 
-    function getWinner() external view onlyOwner returns (uint) {
+    function countVotes() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.VotingSessionEnded,
             "Voting session not ended"
         );
-        uint winningProposalId;
-        uint maxVote;
+        uint _winningProposalId;
+        uint maxCount = 0;
 
         for (uint i = 0; i < proposals.length; i++) {
-            if (proposals[i].voteCount > maxVote) {
-                winningProposalId = i;
-                maxVote = proposals[i].voteCount;
+            if (proposals[i].voteCount >= maxCount) {
+                _winningProposalId = i;
+                maxCount = proposals[i].voteCount;
             }
         }
 
-        return winningProposalId;
+        winningProposalId = _winningProposalId;
+        workflowStatus = WorkflowStatus.VotesTallied;
+    }
+
+    function getWinningProposal() external view returns (string memory) {
+        require(
+            workflowStatus == WorkflowStatus.VotesTallied,
+            "Vote not tallied"
+        );
+        return proposals[winningProposalId].description;
     }
 }

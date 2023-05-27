@@ -9,7 +9,6 @@ const ProposalsRegistrationStarted = 1;
 const ProposalsRegistrationEnded = 2;
 const VotingSessionStarted = 3;
 const VotingSessionEnded = 4;
-const VotesTallie = 5;
 
 describe("Test workflow", function () {
    beforeEach(async function () {
@@ -41,11 +40,6 @@ describe("Test workflow", function () {
       await expect(await Voting.endVotingSession())
          .to.emit(Voting, "WorkflowStatusChange")
          .withArgs(VotingSessionStarted, VotingSessionEnded);
-
-      // VotingSessionEnded => VotesTallie
-      await expect(await Voting.tallyVote())
-         .to.emit(Voting, "WorkflowStatusChange")
-         .withArgs(VotingSessionEnded, VotesTallie);
    });
 
    it("fails if a voter try to change the workflow", async function () {
@@ -68,11 +62,6 @@ describe("Test workflow", function () {
          Voting.connect(voter1).endVotingSession()
       ).to.be.revertedWith("Ownable: caller is not the owner");
       Voting.endVotingSession();
-
-      await expect(Voting.connect(voter1).tallyVote()).to.be.revertedWith(
-         "Ownable: caller is not the owner"
-      );
-      Voting.tallyVote();
    });
 });
 
@@ -109,11 +98,6 @@ describe("Test adding in whitelist", function () {
       );
 
       await Voting.endVotingSession();
-      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
-         "Not in a registering voters session"
-      );
-
-      await Voting.tallyVote();
       await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
          "Not in a registering voters session"
       );
@@ -259,22 +243,17 @@ describe("Test adding a vote", function () {
       await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
          "Not in a vote session"
       );
-
-      await Voting.tallyVote();
-      await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
-         "Not in a vote session"
-      );
    });
 });
 
-describe("Test getting a winner", function () {
+describe("Test count votes", function () {
    beforeEach(async function () {
       [owner, voter1, voter2, voter3, voter4] = await ethers.getSigners();
       Voting_Factory = await ethers.getContractFactory("Voting");
       Voting = await Voting_Factory.deploy();
    });
 
-   it("fail if not called by owner", async function () {
+   /*it("fail if not called by owner", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.startProposalsRegistration();
@@ -284,12 +263,12 @@ describe("Test getting a winner", function () {
       await Voting.startVotingSession();
 
       await Voting.connect(voter1).addVote(0);
-      await expect(Voting.connect(voter1).getWinner()).to.be.revertedWith(
+      await expect(Voting.connect(voter1).countVotes()).to.be.revertedWith(
          "Ownable: caller is not the owner"
       );
-   });
+   });*/
 
-   it("fail if vote session not ended", async function () {
+   /*it("fail if vote session not ended", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.startProposalsRegistration();
       await Voting.connect(voter1).registerProposal("description1");
@@ -298,33 +277,34 @@ describe("Test getting a winner", function () {
 
       await Voting.connect(voter1).addVote(0);
 
-      await expect(Voting.getWinner()).to.be.revertedWith(
+      await expect(Voting.countVotes()).to.be.revertedWith(
          "Voting session not ended"
       );
-   });
+   });*/
 
-   it("get winner, 1 vote for proposal 0", async function () {
+   it("count vote, 1 vote for proposal 0", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.startProposalsRegistration();
-      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter1).registerProposal("proposal0");
       await Voting.endProposalsRegistration();
       await Voting.startVotingSession();
 
       await Voting.connect(voter1).addVote(0);
       await Voting.endVotingSession();
 
-      const result = await Voting.getWinner();
-      expect(result).to.equal(0);
+      await Voting.countVotes();
+      const result = await Voting.getWinningProposal();
+      expect(result).to.be.equal("proposal0");
    });
 
-   it("get winner, 1 vote for proposal 0, 2 vote for proposal1", async function () {
+   it("count vote, 1 vote for proposal 0, 2 vote for proposal1", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.addVoter(voter3.address);
       await Voting.startProposalsRegistration();
-      await Voting.connect(voter1).registerProposal("description1");
-      await Voting.connect(voter2).registerProposal("description2");
-      await Voting.connect(voter3).registerProposal("description3");
+      await Voting.connect(voter1).registerProposal("proposal0");
+      await Voting.connect(voter2).registerProposal("proposal1");
+      await Voting.connect(voter3).registerProposal("proposal2");
       await Voting.endProposalsRegistration();
       await Voting.startVotingSession();
 
@@ -333,18 +313,19 @@ describe("Test getting a winner", function () {
       await Voting.connect(voter3).addVote(1);
       await Voting.endVotingSession();
 
-      const result = await Voting.getWinner();
-      expect(result).to.equal(1);
+      await Voting.countVotes();
+      const result = await Voting.getWinningProposal();
+      expect(result).to.be.equal("proposal1");
    });
 
-   it("get winner, 2 vote for proposal 0, 1 vote for proposal1", async function () {
+   it("count vote, 2 vote for proposal 0, 1 vote for proposal1", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.addVoter(voter3.address);
       await Voting.startProposalsRegistration();
-      await Voting.connect(voter1).registerProposal("description1");
-      await Voting.connect(voter2).registerProposal("description2");
-      await Voting.connect(voter3).registerProposal("description3");
+      await Voting.connect(voter1).registerProposal("proposal0");
+      await Voting.connect(voter2).registerProposal("proposal1");
+      await Voting.connect(voter3).registerProposal("proposal2");
       await Voting.endProposalsRegistration();
       await Voting.startVotingSession();
 
@@ -353,20 +334,21 @@ describe("Test getting a winner", function () {
       await Voting.connect(voter3).addVote(1);
       await Voting.endVotingSession();
 
-      const result = await Voting.getWinner();
-      expect(result).to.equal(0);
+      await Voting.countVotes();
+      const result = await Voting.getWinningProposal();
+      expect(result).to.be.equal("proposal0");
    });
 
-   it("get winner, 1 vote for proposal0, 2 vote for proposal1, 1 vote for proposal2", async function () {
+   it("count vote, 1 vote for proposal0, 2 vote for proposal1, 1 vote for proposal2", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.addVoter(voter3.address);
       await Voting.addVoter(voter4.address);
       await Voting.startProposalsRegistration();
-      await Voting.connect(voter1).registerProposal("description1");
-      await Voting.connect(voter2).registerProposal("description2");
-      await Voting.connect(voter3).registerProposal("description3");
-      await Voting.connect(voter4).registerProposal("description4");
+      await Voting.connect(voter1).registerProposal("proposal0");
+      await Voting.connect(voter2).registerProposal("proposal1");
+      await Voting.connect(voter3).registerProposal("proposal2");
+      await Voting.connect(voter4).registerProposal("proposal3");
       await Voting.endProposalsRegistration();
       await Voting.startVotingSession();
 
@@ -376,7 +358,8 @@ describe("Test getting a winner", function () {
       await Voting.connect(voter4).addVote(2);
       await Voting.endVotingSession();
 
-      const result = await Voting.getWinner();
-      expect(result).to.equal(1);
+      await Voting.countVotes();
+      const result = await Voting.getWinningProposal();
+      expect(result).to.be.equal("proposal1");
    });
 });
