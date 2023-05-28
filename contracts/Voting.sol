@@ -56,6 +56,12 @@ contract Voting is Ownable {
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
+
+        // Ajout du de la proposition "vote blanc"
+        Proposal memory proposal;
+        proposal.description = "Blank vote";
+        proposal.voteCount = 0;
+        proposals.push(proposal);
     }
 
     /* 
