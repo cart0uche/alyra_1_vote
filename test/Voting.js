@@ -410,7 +410,7 @@ describe("Test get winning proposal", function () {
       await Voting.connect(voter1).getWinningProposal();
    });
 
-   it("fails if not not tallied", async function () {
+   it("fails if vote not tallied", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.startProposalsRegistration();

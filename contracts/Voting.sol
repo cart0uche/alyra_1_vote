@@ -43,9 +43,15 @@ contract Voting is Ownable {
     event Voted(address voter, uint proposalId);
 
     // VARIABLES
+    // Les variables sont en public pour être consultables par tous
+    // et ainsi inspirer la confiance des votants
     VoteDetail public voteDetail;
     WorkflowStatus public workflowStatus;
+    // Un mapping de votants permet d'acceder à un votant rapidement
+    // et à moindre frais, à partir de son adresse
     mapping(address => Voter) public voters;
+    // Un tableau de propositions est necessaire pour le parcours
+    // des propositions lors du décompte
     Proposal[] public proposals;
 
     constructor() {
@@ -55,46 +61,52 @@ contract Voting is Ownable {
     /* 
         Workflow functions 
     */
-    modifier emitWorkflowChange() {
-        WorkflowStatus previousWorkflow = workflowStatus;
-        _;
-        emit WorkflowStatusChange(previousWorkflow, workflowStatus);
-    }
-
-    function startProposalsRegistration()
-        external
-        onlyOwner
-        emitWorkflowChange
-    {
+    function startProposalsRegistration() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.RegisteringVoters,
             "Current workflow should be RegisteringVoters"
         );
         workflowStatus = WorkflowStatus.ProposalsRegistrationStarted;
+        emit WorkflowStatusChange(
+            WorkflowStatus.RegisteringVoters,
+            workflowStatus
+        );
     }
 
-    function endProposalsRegistration() external onlyOwner emitWorkflowChange {
+    function endProposalsRegistration() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationStarted,
             "Current workflow should be ProposalsRegistrationStarted"
         );
         workflowStatus = WorkflowStatus.ProposalsRegistrationEnded;
+        emit WorkflowStatusChange(
+            WorkflowStatus.ProposalsRegistrationStarted,
+            workflowStatus
+        );
     }
 
-    function startVotingSession() external onlyOwner emitWorkflowChange {
+    function startVotingSession() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.ProposalsRegistrationEnded,
             "Current workflow should be ProposalsRegistrationEnded"
         );
         workflowStatus = WorkflowStatus.VotingSessionStarted;
+        emit WorkflowStatusChange(
+            WorkflowStatus.ProposalsRegistrationEnded,
+            workflowStatus
+        );
     }
 
-    function endVotingSession() external onlyOwner emitWorkflowChange {
+    function endVotingSession() external onlyOwner {
         require(
             workflowStatus == WorkflowStatus.VotingSessionStarted,
             "Current workflow should be VotingSessionStarted"
         );
         workflowStatus = WorkflowStatus.VotingSessionEnded;
+        emit WorkflowStatusChange(
+            WorkflowStatus.VotingSessionStarted,
+            workflowStatus
+        );
     }
 
     /*
