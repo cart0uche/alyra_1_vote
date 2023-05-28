@@ -1,13 +1,12 @@
-# Sample Hardhat Project
+# Projet - Système de vote
 
-This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a script that deploys that contract.
+Projet réalisé sur hardhat et compatible Remix
+Gestion du vote blanc, les votes blancs sont pris en compte dans le décompte du vote.
 
-Try running some of the following tasks:
+Lancement de test unitaires avec la commande:
 
 ```shell
-npx hardhat help
-npx hardhat test
-REPORT_GAS=true npx hardhat test
-npx hardhat node
-npx hardhat run scripts/deploy.js
+npm run coverage
 ```
+
+![alt text](./image.png)
