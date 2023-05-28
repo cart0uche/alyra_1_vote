@@ -173,6 +173,10 @@ contract Voting is Ownable {
             }
         }
 
+        // si personne n'a voté, le vote est nul
+        // car sinon la dernière proposition aurait été désigné gagnante
+        require(_totalVotes != 0, "Nobody voted");
+
         voteDetail.winningProposalId = _winningProposalId;
         voteDetail.totalVotes = _totalVotes;
         voteDetail.numberVotes = _numberVotes;

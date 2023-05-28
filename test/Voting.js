@@ -138,7 +138,7 @@ describe("Test register a proposal", function () {
          .withArgs(1);
    });
 
-   it("fail if not in a proposal register session", async function () {
+   it("fails if not in a proposal register session", async function () {
       await Voting.addVoter(voter1.address);
 
       await Voting.startProposalsRegistration();
@@ -268,7 +268,7 @@ describe("Test count votes", function () {
       Voting = await Voting_Factory.deploy();
    });
 
-   it("fail if not called by owner", async function () {
+   it("fails if not called by owner", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.startProposalsRegistration();
@@ -284,7 +284,7 @@ describe("Test count votes", function () {
       );
    });
 
-   it("fail if vote session not ended", async function () {
+   it("fails if vote session not ended", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.startProposalsRegistration();
       await Voting.connect(voter1).registerProposal("description1");
@@ -296,6 +296,17 @@ describe("Test count votes", function () {
       await expect(Voting.countVotes()).to.be.revertedWith(
          "Voting session not ended"
       );
+   });
+
+   it("fails if nobody voted", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("proposal0");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+      await Voting.endVotingSession();
+
+      await expect(Voting.countVotes()).to.be.revertedWith("Nobody voted");
    });
 
    it("count vote, 1 vote for proposal 0", async function () {
