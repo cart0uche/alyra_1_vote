@@ -117,7 +117,7 @@ describe("Test adding in whitelist", function () {
    });
 });
 
-describe("Test adding a proposal", function () {
+describe("Test register a proposal", function () {
    beforeEach(async function () {
       [owner, voter1, voter2] = await ethers.getSigners();
       Voting_Factory = await ethers.getContractFactory("Voting");
@@ -136,6 +136,28 @@ describe("Test adding a proposal", function () {
       await expect(await Voting.connect(voter2).registerProposal("proposal1"))
          .to.emit(Voting, "ProposalRegistered")
          .withArgs(1);
+   });
+
+   it("fail if not in a proposal register session", async function () {
+      await Voting.addVoter(voter1.address);
+
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("proposal0");
+
+      await Voting.endProposalsRegistration();
+      await expect(
+         Voting.connect(voter1).registerProposal("proposal0")
+      ).to.be.revertedWith("Not in a proposal register session");
+
+      await Voting.startVotingSession();
+      await expect(
+         Voting.connect(voter1).registerProposal("proposal0")
+      ).to.be.revertedWith("Not in a proposal register session");
+
+      await Voting.endVotingSession();
+      await expect(
+         Voting.connect(voter1).registerProposal("proposal0")
+      ).to.be.revertedWith("Not in a proposal register session");
    });
 
    it("fails if a voter is not register", async function () {
@@ -205,11 +227,11 @@ describe("Test adding a vote", function () {
       await Voting.startVotingSession();
 
       await expect(Voting.connect(voter1).addVote(1)).to.be.revertedWith(
-         "proposalId not valid"
+         "unkown proposalId"
       );
 
       await expect(Voting.connect(voter1).addVote(2)).to.be.revertedWith(
-         "proposalId not valid"
+         "unkown proposalId"
       );
    });
 
@@ -256,6 +278,7 @@ describe("Test count votes", function () {
       await Voting.startVotingSession();
 
       await Voting.connect(voter1).addVote(0);
+      await Voting.endVotingSession();
       await expect(Voting.connect(voter1).countVotes()).to.be.revertedWith(
          "Ownable: caller is not the owner"
       );
@@ -362,5 +385,44 @@ describe("Test count votes", function () {
       expect(result[0]).to.be.equal("proposal1");
       expect(result[1]).to.be.equal(4);
       expect(result[2]).to.be.equal(2);
+   });
+});
+
+describe("Test get winning proposal", function () {
+   beforeEach(async function () {
+      [owner, voter1] = await ethers.getSigners();
+      Voting_Factory = await ethers.getContractFactory("Voting");
+      Voting = await Voting_Factory.deploy();
+   });
+
+   it("can be call by anyone", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.endVotingSession();
+      await Voting.countVotes();
+      await Voting.connect(voter1).getWinningProposal();
+   });
+
+   it("fails if not not tallied", async function () {
+      await Voting.addVoter(voter1.address);
+      await Voting.addVoter(voter2.address);
+      await Voting.startProposalsRegistration();
+      await Voting.connect(voter1).registerProposal("description1");
+      await Voting.connect(voter2).registerProposal("description2");
+      await Voting.endProposalsRegistration();
+      await Voting.startVotingSession();
+
+      await Voting.connect(voter1).addVote(0);
+      await Voting.endVotingSession();
+      await expect(Voting.getWinningProposal()).to.be.revertedWith(
+         "Vote not tallied"
+      );
    });
 });

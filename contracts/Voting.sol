@@ -120,10 +120,6 @@ contract Voting is Ownable {
             "Not in a proposal register session"
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
-        require(
-            voters[msg.sender].votedProposalId == 0,
-            "Voter already proposed"
-        );
 
         Proposal memory proposal;
         proposal.description = _description;
@@ -140,7 +136,7 @@ contract Voting is Ownable {
         );
         require(voters[msg.sender].isRegistered, "Voter not registred");
         require(voters[msg.sender].hasVoted == false, "Voter already voted");
-        require(_proposalId < proposals.length, "proposalId not valid");
+        require(_proposalId < proposals.length, "unkown proposalId");
 
         proposals[_proposalId].voteCount += 1;
         voters[msg.sender].hasVoted = true;
