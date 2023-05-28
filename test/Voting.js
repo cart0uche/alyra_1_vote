@@ -108,6 +108,13 @@ describe("Test adding in whitelist", function () {
          Voting.connect(voter1).addVoter(voter1.address)
       ).to.be.revertedWith("Ownable: caller is not the owner");
    });
+
+   it("fails if a voter is already in whitelist", async function () {
+      await Voting.addVoter(voter1.address);
+      await expect(Voting.addVoter(voter1.address)).to.be.revertedWith(
+         "Voter already registered"
+      );
+   });
 });
 
 describe("Test adding a proposal", function () {
@@ -122,35 +129,21 @@ describe("Test adding a proposal", function () {
       await Voting.addVoter(voter2.address);
       await Voting.startProposalsRegistration();
 
-      await expect(
-         await Voting.connect(voter1).registerProposal("description1")
-      )
+      await expect(await Voting.connect(voter1).registerProposal("proposal0"))
+         .to.emit(Voting, "ProposalRegistered")
+         .withArgs(0);
+
+      await expect(await Voting.connect(voter2).registerProposal("proposal1"))
          .to.emit(Voting, "ProposalRegistered")
          .withArgs(1);
-
-      await expect(
-         await Voting.connect(voter2).registerProposal("description2")
-      )
-         .to.emit(Voting, "ProposalRegistered")
-         .withArgs(2);
    });
 
    it("fails if a voter is not register", async function () {
       await Voting.startProposalsRegistration();
 
       await expect(
-         Voting.connect(voter1).registerProposal("description0")
+         Voting.connect(voter1).registerProposal("proposal0")
       ).to.be.revertedWith("Voter not registred");
-   });
-
-   it("fails if a voter propose twice", async function () {
-      await Voting.addVoter(voter1.address);
-      await Voting.startProposalsRegistration();
-
-      await Voting.connect(voter1).registerProposal("description0");
-      await expect(
-         Voting.connect(voter1).registerProposal("description0")
-      ).to.be.revertedWith("Voter already proposed");
    });
 });
 
@@ -253,7 +246,7 @@ describe("Test count votes", function () {
       Voting = await Voting_Factory.deploy();
    });
 
-   /*it("fail if not called by owner", async function () {
+   it("fail if not called by owner", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.addVoter(voter2.address);
       await Voting.startProposalsRegistration();
@@ -266,9 +259,9 @@ describe("Test count votes", function () {
       await expect(Voting.connect(voter1).countVotes()).to.be.revertedWith(
          "Ownable: caller is not the owner"
       );
-   });*/
+   });
 
-   /*it("fail if vote session not ended", async function () {
+   it("fail if vote session not ended", async function () {
       await Voting.addVoter(voter1.address);
       await Voting.startProposalsRegistration();
       await Voting.connect(voter1).registerProposal("description1");
@@ -280,7 +273,7 @@ describe("Test count votes", function () {
       await expect(Voting.countVotes()).to.be.revertedWith(
          "Voting session not ended"
       );
-   });*/
+   });
 
    it("count vote, 1 vote for proposal 0", async function () {
       await Voting.addVoter(voter1.address);
@@ -294,7 +287,9 @@ describe("Test count votes", function () {
 
       await Voting.countVotes();
       const result = await Voting.getWinningProposal();
-      expect(result).to.be.equal("proposal0");
+      expect(result[0]).to.be.equal("proposal0");
+      expect(result[1]).to.be.equal(1);
+      expect(result[2]).to.be.equal(1);
    });
 
    it("count vote, 1 vote for proposal 0, 2 vote for proposal1", async function () {
@@ -315,7 +310,9 @@ describe("Test count votes", function () {
 
       await Voting.countVotes();
       const result = await Voting.getWinningProposal();
-      expect(result).to.be.equal("proposal1");
+      expect(result[0]).to.be.equal("proposal1");
+      expect(result[1]).to.be.equal(3);
+      expect(result[2]).to.be.equal(2);
    });
 
    it("count vote, 2 vote for proposal 0, 1 vote for proposal1", async function () {
@@ -336,7 +333,9 @@ describe("Test count votes", function () {
 
       await Voting.countVotes();
       const result = await Voting.getWinningProposal();
-      expect(result).to.be.equal("proposal0");
+      expect(result[0]).to.be.equal("proposal0");
+      expect(result[1]).to.be.equal(3);
+      expect(result[2]).to.be.equal(2);
    });
 
    it("count vote, 1 vote for proposal0, 2 vote for proposal1, 1 vote for proposal2", async function () {
@@ -360,6 +359,8 @@ describe("Test count votes", function () {
 
       await Voting.countVotes();
       const result = await Voting.getWinningProposal();
-      expect(result).to.be.equal("proposal1");
+      expect(result[0]).to.be.equal("proposal1");
+      expect(result[1]).to.be.equal(4);
+      expect(result[2]).to.be.equal(2);
    });
 });

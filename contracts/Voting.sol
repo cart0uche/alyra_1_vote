@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 // import "hardhat/console.sol";
 
 contract Voting is Ownable {
+    // STRUCTS
     struct Voter {
         bool isRegistered;
         bool hasVoted;
@@ -16,7 +17,13 @@ contract Voting is Ownable {
         string description;
         uint voteCount;
     }
+    struct VoteDetail {
+        uint winningProposalId;
+        uint totalVotes;
+        uint numberVotes;
+    }
 
+    // ENUMS
     enum WorkflowStatus {
         RegisteringVoters,
         ProposalsRegistrationStarted,
@@ -26,6 +33,7 @@ contract Voting is Ownable {
         VotesTallied
     }
 
+    // EVENTS
     event VoterRegistered(address voterAddress);
     event WorkflowStatusChange(
         WorkflowStatus previousStatus,
@@ -34,15 +42,14 @@ contract Voting is Ownable {
     event ProposalRegistered(uint proposalId);
     event Voted(address voter, uint proposalId);
 
+    // VARIABLES
+    VoteDetail public voteDetail;
     WorkflowStatus public workflowStatus;
-    mapping(address => Voter) voters;
-    Proposal[] proposals;
-    uint proposalId;
-    uint winningProposalId;
+    mapping(address => Voter) public voters;
+    Proposal[] public proposals;
 
     constructor() {
         workflowStatus = WorkflowStatus.RegisteringVoters;
-        proposalId = 1;
     }
 
     /* 
@@ -98,6 +105,7 @@ contract Voting is Ownable {
             workflowStatus == WorkflowStatus.RegisteringVoters,
             "Not in a registering voters session"
         );
+        require(!voters[_voter].isRegistered, "Voter already registered");
         Voter memory voter;
         voter.isRegistered = true;
         voter.hasVoted = false;
@@ -122,9 +130,7 @@ contract Voting is Ownable {
         proposal.voteCount = 0;
         proposals.push(proposal);
 
-        voters[msg.sender].votedProposalId = proposalId;
-        emit ProposalRegistered(proposalId);
-        proposalId++;
+        emit ProposalRegistered(proposals.length - 1);
     }
 
     function addVote(uint _proposalId) external {
@@ -138,6 +144,7 @@ contract Voting is Ownable {
 
         proposals[_proposalId].voteCount += 1;
         voters[msg.sender].hasVoted = true;
+        voters[msg.sender].votedProposalId = _proposalId;
         emit Voted(msg.sender, _proposalId);
     }
 
@@ -147,24 +154,36 @@ contract Voting is Ownable {
             "Voting session not ended"
         );
         uint _winningProposalId;
-        uint maxCount = 0;
+        uint _totalVotes;
+        uint _numberVotes;
 
         for (uint i = 0; i < proposals.length; i++) {
-            if (proposals[i].voteCount >= maxCount) {
+            _totalVotes += proposals[i].voteCount;
+            if (proposals[i].voteCount >= _numberVotes) {
                 _winningProposalId = i;
-                maxCount = proposals[i].voteCount;
+                _numberVotes = proposals[i].voteCount;
             }
         }
 
-        winningProposalId = _winningProposalId;
+        voteDetail.winningProposalId = _winningProposalId;
+        voteDetail.totalVotes = _totalVotes;
+        voteDetail.numberVotes = _numberVotes;
         workflowStatus = WorkflowStatus.VotesTallied;
     }
 
-    function getWinningProposal() external view returns (string memory) {
+    function getWinningProposal()
+        external
+        view
+        returns (string memory, uint, uint)
+    {
         require(
             workflowStatus == WorkflowStatus.VotesTallied,
             "Vote not tallied"
         );
-        return proposals[winningProposalId].description;
+        return (
+            proposals[voteDetail.winningProposalId].description,
+            voteDetail.totalVotes,
+            voteDetail.numberVotes
+        );
     }
 }
